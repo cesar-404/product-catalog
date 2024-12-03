@@ -7,12 +7,12 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Repository;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Repository
+@RestController
 @RequestMapping("/product")
 public class ProductController {
 
@@ -23,7 +23,7 @@ public class ProductController {
         this.productService = productService;
     }
 
-    @PostMapping
+    @PostMapping("/save")
     public ResponseEntity<Product> save(@RequestBody @Valid ProductDto productDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(productDto));
     }
