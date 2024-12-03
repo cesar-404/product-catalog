@@ -1,9 +1,13 @@
 package br.com.forzerofor.productcatalog.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+
 import java.math.BigDecimal;
 
-public record ProductDto(String name,
+public record ProductDto(@NotBlank String name,
                          String description,
-                         BigDecimal price,
-                         int stock) {
+                         @NotNull @PositiveOrZero BigDecimal price,
+                         @NotNull @PositiveOrZero int stock) {
 }

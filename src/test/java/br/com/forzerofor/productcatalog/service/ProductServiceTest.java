@@ -96,10 +96,10 @@ class ProductServiceTest {
     }
 
     @Test
-    void shouldThrowExceptionWhenProductNotFound() {
+    void shouldReturnNullWhenProductNotFound() {
         when(productRepository.findById(anyLong())).thenReturn(Optional.empty());
-        RuntimeException thrown = assertThrows(RuntimeException.class, () -> productService.getProductById(1L));
-        assertEquals("Product not found", thrown.getMessage());
+        assertNull(productService.getProductById(1L));
+
     }
 
     @Test

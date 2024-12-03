@@ -3,66 +3,150 @@ package br.com.forzerofor.productcatalog.controller;
 import br.com.forzerofor.productcatalog.dto.ProductDto;
 import br.com.forzerofor.productcatalog.model.Product;
 import br.com.forzerofor.productcatalog.service.ProductService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.math.BigDecimal;
 
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc
-@ExtendWith({SpringExtension.class, MockitoExtension.class})
+@AutoConfigureWebTestClient
 class ProductControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
-
-    @Mock
     private ProductService productService;
 
-    @InjectMocks
-    private ProductController productController;
+    @TestConfiguration
+    static class ProductControllerTestConfig {
 
-    private final ObjectMapper mapper = new ObjectMapper();
+        @Bean
+        public ProductService productService() {
+            ProductService productService = Mockito.mock(ProductService.class);
+            Mockito.when(productService.getProductById(1L))
+                    .thenReturn(new Product(1L, "Tv", "Big Tv", new BigDecimal(1000), 3));
+            Mockito.when(productService.updateProduct(Mockito.eq(1L), Mockito.any(ProductDto.class)))
+                    .thenReturn(new Product(1L, "Tv2", "Big Tv2", new BigDecimal(2000), 1));
+            Mockito.when(productService.createProduct(Mockito.any(ProductDto.class)))
+                    .thenReturn(new Product(1L, "Tv", "Big Tv", new BigDecimal(1000), 3));
+            return productService;
+        }
+    }
+
+    @Autowired
+    WebTestClient webClient;
 
     private ProductDto productDto;
+    private ProductDto productDto2;
+    private ProductDto updatedProductDto;
 
     @BeforeEach
     void setUp() {
-        productDto = new ProductDto("Tv", "Big Tv", new BigDecimal(1000), 22);
+        productDto = new ProductDto("Tv", "Big Tv", new BigDecimal(1000), 3);
+        productDto2 = new ProductDto("", "", new BigDecimal(0), 0);
+        updatedProductDto = new ProductDto("Tv2", "Big Tv2", new BigDecimal(2000), 1);
     }
 
     @Test
-    void shouldCreateProductSuccessfully() throws Exception {
-        String jsonProduct = mapper.writeValueAsString(productDto);
-
-        mockMvc.perform(
-                post("/product/save")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonProduct)
-        )
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Tv"))
-                .andExpect(jsonPath("$.description").value("Big Tv"))
-                .andExpect(jsonPath("$.price").value(1000))
-                .andExpect(jsonPath("$.stock").value(22));
+    void saveProductSuccess() {
+        webClient
+                .post()
+                .uri("/product/save")
+                .bodyValue(productDto)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Tv")
+                .jsonPath("$.description").isEqualTo("Big Tv")
+                .jsonPath("$.price").isEqualTo(1000)
+                .jsonPath("$.stock").isEqualTo(3);
     }
 
+    @Test
+    void saveProductFail() {
+        webClient
+                .post()
+                .uri("/product/save")
+                .bodyValue(productDto2)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
 
+    @Test
+    void listProductsSuccess() {
+        webClient
+                .get()
+                .uri("/product/list")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(Product.class);
+    }
+
+    @Test
+    void findProductByIdSuccess() {
+        webClient
+                .get()
+                .uri("/product/1")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Tv")
+                .jsonPath("$.description").isEqualTo("Big Tv")
+                .jsonPath("$.price").isEqualTo(1000)
+                .jsonPath("$.stock").isEqualTo(3);
+    }
+
+    @Test
+    void findProductByIdFail() {
+        webClient
+                .get()
+                .uri("/product/2")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void updateProductSuccess() {
+        webClient
+                .put()
+                .uri("/product/update/1")
+                .bodyValue(updatedProductDto)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.name").isEqualTo("Tv2")
+                .jsonPath("$.description").isEqualTo("Big Tv2")
+                .jsonPath("$.price").isEqualTo(2000)
+                .jsonPath("$.stock").isEqualTo(1);
+    }
+
+    @Test
+    void deleteProductSuccess() {
+        webClient
+                .delete()
+                .uri("/product/delete/1")
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(productService, times(1)).deleteProduct(Mockito.anyLong());
+    }
+
+    @Test
+    void deleteProductFail() {
+        webClient
+                .delete()
+                .uri("/product/delete/2")
+                .exchange()
+                .expectStatus().isNotFound();
+
+        verify(productService, times(0)).deleteProduct(Mockito.anyLong());
+    }
 }
