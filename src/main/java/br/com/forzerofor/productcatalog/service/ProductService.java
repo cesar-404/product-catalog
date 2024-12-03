@@ -30,17 +30,18 @@
         }
 
         public Product getProductById(Long id) {
-            return productRepository.findById(id).orElse(null);
+            return productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
         }
 
         public Product updateProduct(Long id, ProductDto productDto) {
-            var productSaved = getProductById(id);
+            var productSaved = productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
             BeanUtils.copyProperties(productDto, productSaved);
             return productRepository.save(productSaved);
         }
 
         public void deleteProduct(Long id) {
-            productRepository.deleteById(id);
+            var product = productRepository.findById(id).orElseThrow(() -> new RuntimeException("Product not found"));
+            productRepository.deleteById(product.getId());
         }
 
     }
